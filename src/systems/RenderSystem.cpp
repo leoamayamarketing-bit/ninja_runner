@@ -29,9 +29,16 @@ void RenderSystem::update(float deltaTime, std::vector<Entity*>& entities) {
 
         // Update sprite texture from animation if needed
         if (anim && sprite->texture) {
-            sf::IntRect frameRect = anim->getCurrentFrame();
-            if (frameRect.width > 0) {
-                sprite->sprite.setTextureRect(frameRect);
+            if (anim->useSeparateTextures) {
+                // Use full texture rect for per-frame textures (e.g. PNG assets)
+                sf::Vector2u texSize = sprite->texture->getSize();
+                sprite->sprite.setTextureRect(sf::IntRect(0, 0, texSize.x, texSize.y));
+            } else {
+                // Use animation frame rect for sprite-sheet style
+                sf::IntRect frameRect = anim->getCurrentFrame();
+                if (frameRect.width > 0) {
+                    sprite->sprite.setTextureRect(frameRect);
+                }
             }
             // Flip sprite based on animation
             if (anim->flipped) {

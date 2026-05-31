@@ -18,6 +18,8 @@ public:
     void generateAllAssets();
 
 private:
+    void loadPngAssets();
+    bool loadTextureFromFile(const std::string& texName, const std::string& filePath);
     void generateFont();
     void generateNinjaRunTextures();
     void generateNinjaJumpTexture();

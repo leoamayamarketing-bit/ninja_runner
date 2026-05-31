@@ -87,7 +87,69 @@ std::string AssetManager::getTypeSuffix(Constants::NinjaType type) {
     return "_shadow";
 }
 
+bool AssetManager::loadTextureFromFile(const std::string& texName, const std::string& filePath) {
+    sf::Texture tex;
+    if (!tex.loadFromFile(filePath)) return false;
+    textures_[texName] = tex;
+    return true;
+}
+
+void AssetManager::loadPngAssets() {
+    // Try multiple possible paths for the assets directory
+    const char* paths[] = {
+        "../assets/",   // when running from build/
+        "assets/",      // when running from project root
+        "./assets/",    // explicit relative
+    };
+
+    auto loadPng = [&](const std::string& texName, const std::string& fileName) -> bool {
+        for (const char* base : paths) {
+            std::string fullPath = std::string(base) + fileName;
+            if (loadTextureFromFile(texName, fullPath)) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // --- Ninja run frames (blue ninja) ---
+    // Map to SHADOW type textures
+    const char* runFiles[] = {
+        "ninja_corre_00.png", "ninja_corre_01.png", "ninja_corre_02.png", "ninja_corre_03.png",
+        "ninja_corre_04.png", "ninja_corre_05.png", "ninja_corre_06.png", "ninja_corre_07.png"
+    };
+    for (int i = 0; i < 8; i++) {
+        char name[32];
+        std::snprintf(name, sizeof(name), "ninja_run_%d_shadow", i);
+        loadPng(name, runFiles[i]);
+    }
+
+    // Ninja jump (standing pose)
+    loadPng("ninja_jump_shadow", "ninja_parado_00.png");
+
+    // Ninja slide (hidden/crouched pose)
+    loadPng("ninja_slide_shadow", "ninja_escondido_00.png");
+
+    // --- Coin / Shuriken (2-frame animation) ---
+    loadPng("coin_0", "estrella_ninja_00.png");
+    loadPng("coin_1", "estrella_ninja_01.png");
+
+    // --- Treasure / Powerup ---
+    loadPng("treasure", "tesoro_00.png");
+
+    // --- Obstacles ---
+    loadPng("obstacle_0", "osbstaculo_00.png");
+    loadPng("obstacle_1", "osbstaculo_01.png");
+    loadPng("obstacle_2", "osbstaculo_02.png");
+
+    // --- Other decorative assets ---
+    loadPng("flags", "banderas_00.png");
+    loadPng("ladder", "escalera_00.png");
+    loadPng("accessory", "accesorio_00.png");
+}
+
 void AssetManager::generateAllAssets() {
+    // First, generate all procedural textures
     generateFont();
     generateNinjaRunTextures();
     generateNinjaJumpTexture();
@@ -95,6 +157,9 @@ void AssetManager::generateAllAssets() {
     generateObstacleTextures();
     generateBuildingTextures();
     generateUITextures();
+
+    // Then load PNG assets — they overwrite procedural textures for SHADOW type
+    loadPngAssets();
 }
 
 // ======================== FONT ========================

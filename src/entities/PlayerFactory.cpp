@@ -33,8 +33,20 @@ std::unique_ptr<Entity> PlayerFactory::createPlayer(Constants::NinjaType type, A
         sprite.setTexture(assets.getTexture(run0));
     }
     sprite.zOrder = 10;
-    sprite.origin = sf::Vector2f(25.0f, 30.0f);
-    sprite.applyOrigin();
+
+    // Scale ninja sprites appropriately
+    // SHADOW uses PNG pixel-art assets (~150-200px), need scaling
+    if (type == Constants::NinjaType::SHADOW) {
+        float scale = 0.3f;
+        sprite.sprite.setScale(scale, scale);
+        // Origin at center-bottom of the texture
+        sf::Vector2u texSize = sprite.texture->getSize();
+        sprite.origin = sf::Vector2f(texSize.x / 2.0f, static_cast<float>(texSize.y) * 0.9f);
+        sprite.applyOrigin();
+    } else {
+        sprite.origin = sf::Vector2f(25.0f, 30.0f);
+        sprite.applyOrigin();
+    }
 
     // Animation - use separate textures for each frame
     auto& anim = player->addComponent<AnimationComponent>();
@@ -63,10 +75,11 @@ std::unique_ptr<Entity> PlayerFactory::createPlayer(Constants::NinjaType type, A
 
     anim.play("run");
 
-    // Collision
+    // Collision (slightly wider for PNG-based SHADOW ninja)
+    float collW = (type == Constants::NinjaType::SHADOW) ? 50.0f : 40.0f;
     auto& coll = player->addComponent<CollisionComponent>(
-        sf::FloatRect(0, 0, 40, 55), "player");
-    coll.localOffset = sf::Vector2f(-20.0f, -55.0f);
+        sf::FloatRect(0, 0, collW, 55), "player");
+    coll.localOffset = sf::Vector2f(-collW / 2, -55.0f);
     coll.isTrigger = false;
     coll.isStatic = false;
 

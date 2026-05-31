@@ -91,7 +91,7 @@ void Game::initSystems() {
     systems_.push_back(std::make_unique<CollisionSystem>());
     collisionSystem_ = static_cast<CollisionSystem*>(systems_.back().get());
 
-    systems_.push_back(std::make_unique<AnimationSystem>());
+    systems_.push_back(std::make_unique<AnimationSystem>(&assetManager_));
     animationSystem_ = static_cast<AnimationSystem*>(systems_.back().get());
 
     systems_.push_back(std::make_unique<PlayerControlSystem>(inputManager_, gameState_, &audioManager_));
