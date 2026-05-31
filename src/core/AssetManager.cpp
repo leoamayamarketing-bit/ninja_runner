@@ -142,7 +142,36 @@ void AssetManager::loadPngAssets() {
     loadPng("obstacle_1", "osbstaculo_01.png");
     loadPng("obstacle_2", "osbstaculo_02.png");
 
-    // --- Other decorative assets ---
+    // --- Attack frames (blue ninja attacking) ---
+    loadPng("ninja_attack_0_shadow", "ninja_ataca_00.png");
+    loadPng("ninja_attack_1_shadow", "ninja_ataca_01.png");
+    loadPng("ninja_attack_2_shadow", "ninja_ataca_02.png");
+
+    // --- Better jump pose (blue ninja standing with sword) ---
+    loadPng("ninja_sword_shadow", "ninja_azul-parado_con_espada_01.png");
+
+    // --- Hanging poses (decorative) ---
+    loadPng("ninja_hang_shadow", "ninja_colgado_00.png");
+    loadPng("ninja_hang_ceiling_shadow", "ninja_colgado_techo_00.png");
+
+    // --- Hide alt ---
+    loadPng("ninja_hide_shadow", "ninja_escondido_01.png");
+
+    // --- Red ninja sprites for BLAZE type ---
+    // Single run frame used for all 8 slots (overrides procedural BLAZE textures)
+    for (int i = 0; i < 8; i++) {
+        char name[32];
+        std::snprintf(name, sizeof(name), "ninja_run_%d_blaze", i);
+        loadPng(name, "ninja_rojo_corre_0.png");
+    }
+    loadPng("ninja_jump_blaze", "ninja_rojo_sentado_00.png");
+    loadPng("ninja_slide_blaze", "ninja_rojo_sentado_01.png");
+
+    // --- PC hacking (decorative) ---
+    loadPng("ninja_pc_0", "ninja_tramando_con_pc_00.png");
+    loadPng("ninja_pc_1", "ninja_tramando_con_pc_01.png");
+
+    // --- Decorative assets ---
     loadPng("flags", "banderas_00.png");
     loadPng("ladder", "escalera_00.png");
     loadPng("accessory", "accesorio_00.png");

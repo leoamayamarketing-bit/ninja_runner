@@ -21,14 +21,17 @@ public:
     void update(float deltaTime, AssetManager& assets, GameState& state) override;
     void render(sf::RenderWindow& window) override;
     void spawnObstacles(GameState& state, AssetManager& assets) override;
+    void renderDecorative(sf::RenderWindow& window, AssetManager& assets);
     Constants::LevelType getType() const override { return Constants::LevelType::ROOFTOP_NIGHT; }
 
 private:
     ParallaxSystem skyParallax_;
     std::vector<Building> buildings_;
     std::vector<NeonSign> neonSigns_;
+    std::vector<DecorativeItem> decoratives_;
     float scrollOffset_ = 0.0f;
     float nextBuildingX_ = 0.0f;
+    AssetManager* assets_ = nullptr;
 
     ParticleSystem dustParticles_;
     float dustTimer_ = 0.0f;

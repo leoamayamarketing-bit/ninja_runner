@@ -35,8 +35,8 @@ std::unique_ptr<Entity> PlayerFactory::createPlayer(Constants::NinjaType type, A
     sprite.zOrder = 10;
 
     // Scale ninja sprites appropriately
-    // SHADOW uses PNG pixel-art assets (~150-200px), need scaling
-    if (type == Constants::NinjaType::SHADOW) {
+    // SHADOW and BLAZE use PNG pixel-art assets (~150-200px), need scaling
+    if (type != Constants::NinjaType::STORM) {
         float scale = 0.3f;
         sprite.sprite.setScale(scale, scale);
         // Origin at center-bottom of the texture
@@ -61,10 +61,15 @@ std::unique_ptr<Entity> PlayerFactory::createPlayer(Constants::NinjaType type, A
     }
     anim.addAnimation("run", runFrames);
 
-    // Jump animation
+    // Jump animation — use sword pose if available (SHADOW type)
     std::vector<AnimationFrame> jumpFrames;
     std::string jumpName = "ninja_jump" + suffix;
-    jumpFrames.emplace_back(sf::IntRect(0, 0, 50, 60), 0.15f, jumpName);
+    // For SHADOW, prefer the sword-wielding pose as jump texture
+    if (type == Constants::NinjaType::SHADOW && assets.hasTexture("ninja_sword_shadow")) {
+        jumpFrames.emplace_back(sf::IntRect(0, 0, 50, 60), 0.15f, "ninja_sword_shadow");
+    } else {
+        jumpFrames.emplace_back(sf::IntRect(0, 0, 50, 60), 0.15f, jumpName);
+    }
     anim.addAnimation("jump", jumpFrames);
 
     // Slide animation

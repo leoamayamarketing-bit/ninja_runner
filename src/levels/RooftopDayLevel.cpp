@@ -7,6 +7,7 @@
 #include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/CircleShape.hpp>
 #include <SFML/Graphics/ConvexShape.hpp>
+#include <SFML/Graphics/Sprite.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -53,9 +54,11 @@ void RooftopDayLevel::init(AssetManager& assets, GameState& state) {
     scrollOffset_ = 0.0f;
     nextBuildingX_ = 0.0f;
     buildingTimer_ = 0.0f;
+    assets_ = &assets;
 
-    // Generate initial buildings
+    // Generate initial buildings and decoratives
     buildings_.clear();
+    decoratives_.clear();
     generateBuildings(10);
 
     // Parallax layers - city skyline background
@@ -87,6 +90,39 @@ void RooftopDayLevel::generateBuildings(int count) {
         b.windowRows = 3 + (std::rand() % 3);
         buildings_.push_back(b);
         nextBuildingX_ += b.width;
+
+        // Generate decorative items for this building
+        int decoRoll = std::rand() % 100;
+        if (decoRoll < 20 && assets_ && assets_->hasTexture("flags")) {
+            // Flag on the rooftop parapet
+            float roofY = Constants::GROUND_Y - b.height;
+            DecorativeItem d;
+            d.x = b.x + b.width * 0.2f + (std::rand() % static_cast<int>(b.width * 0.4f));
+            d.y = roofY - 16.0f;
+            d.textureName = "flags";
+            d.scale = 0.25f;
+            decoratives_.push_back(d);
+        }
+        if (decoRoll < 30 && assets_ && assets_->hasTexture("ladder")) {
+            // Ladder on the side of the building
+            float roofY = Constants::GROUND_Y - b.height;
+            DecorativeItem d;
+            d.x = b.x + (std::rand() % 2 == 0 ? -6.0f : b.width - 4.0f);
+            d.y = roofY + 10.0f;
+            d.textureName = "ladder";
+            d.scale = 0.3f;
+            decoratives_.push_back(d);
+        }
+        if (decoRoll < 12 && assets_ && assets_->hasTexture("accessory")) {
+            // Accessory/crate on the rooftop
+            float roofY = Constants::GROUND_Y - b.height;
+            DecorativeItem d;
+            d.x = b.x + b.width * 0.5f + (std::rand() % static_cast<int>(b.width * 0.3f));
+            d.y = roofY - 8.0f;
+            d.textureName = "accessory";
+            d.scale = 0.2f;
+            decoratives_.push_back(d);
+        }
     }
 }
 
@@ -129,10 +165,17 @@ void RooftopDayLevel::scrollBuildings(float speed, float deltaTime, GameState& s
     for (auto& b : buildings_) {
         b.x -= scrollAmount;
     }
+    for (auto& d : decoratives_) {
+        d.x -= scrollAmount;
+    }
 
     // Remove off-screen buildings and add new ones
     while (!buildings_.empty() && buildings_.front().x + buildings_.front().width < -200) {
         buildings_.erase(buildings_.begin());
+    }
+    // Remove off-screen decoratives
+    while (!decoratives_.empty() && decoratives_.front().x < -200) {
+        decoratives_.erase(decoratives_.begin());
     }
 
     // Add new buildings ahead
@@ -150,6 +193,36 @@ void RooftopDayLevel::scrollBuildings(float speed, float deltaTime, GameState& s
         b.windowCount = 3 + (std::rand() % 6);
         b.windowRows = 3 + (std::rand() % 3);
         buildings_.push_back(b);
+
+        // Generate decorative items for this new building
+        int decoRoll = std::rand() % 100;
+        if (decoRoll < 20 && assets_ && assets_->hasTexture("flags")) {
+            float roofY = Constants::GROUND_Y - b.height;
+            DecorativeItem d;
+            d.x = b.x + b.width * 0.2f + (std::rand() % static_cast<int>(b.width * 0.4f));
+            d.y = roofY - 16.0f;
+            d.textureName = "flags";
+            d.scale = 0.25f;
+            decoratives_.push_back(d);
+        }
+        if (decoRoll < 30 && assets_ && assets_->hasTexture("ladder")) {
+            float roofY = Constants::GROUND_Y - b.height;
+            DecorativeItem d;
+            d.x = b.x + (std::rand() % 2 == 0 ? -6.0f : b.width - 4.0f);
+            d.y = roofY + 10.0f;
+            d.textureName = "ladder";
+            d.scale = 0.3f;
+            decoratives_.push_back(d);
+        }
+        if (decoRoll < 12 && assets_ && assets_->hasTexture("accessory")) {
+            float roofY = Constants::GROUND_Y - b.height;
+            DecorativeItem d;
+            d.x = b.x + b.width * 0.5f + (std::rand() % static_cast<int>(b.width * 0.3f));
+            d.y = roofY - 8.0f;
+            d.textureName = "accessory";
+            d.scale = 0.2f;
+            decoratives_.push_back(d);
+        }
     }
 }
 
@@ -196,6 +269,9 @@ void RooftopDayLevel::render(sf::RenderWindow& window) {
 
     // Dust particles
     dustParticles_.render(window);
+
+    // Decorative items
+    if (assets_) renderDecorative(window, *assets_);
 }
 
 void RooftopDayLevel::drawBuilding(sf::RenderWindow& window, const Building& b, float screenX) {
@@ -294,6 +370,18 @@ void RooftopDayLevel::drawBuilding(sf::RenderWindow& window, const Building& b, 
     // Bottom-right
     corner.setPosition(screenX + b.width - cd, Constants::GROUND_Y - cd);
     window.draw(corner);
+}
+
+void RooftopDayLevel::renderDecorative(sf::RenderWindow& window, AssetManager& assets) {
+    for (auto& d : decoratives_) {
+        if (!assets.hasTexture(d.textureName)) continue;
+        sf::Sprite decoSprite(assets.getTexture(d.textureName));
+        decoSprite.setScale(d.scale, d.scale);
+        sf::Vector2u sz = decoSprite.getTexture()->getSize();
+        decoSprite.setOrigin(sz.x / 2.0f, static_cast<float>(sz.y));
+        decoSprite.setPosition(d.x, d.y);
+        window.draw(decoSprite);
+    }
 }
 
 void RooftopDayLevel::spawnObstacles(GameState& state, AssetManager& assets) {

@@ -79,93 +79,97 @@ std::vector<uint8_t> AudioManager::generateSweep(float startFreq, float endFreq,
     return samples;
 }
 
-// Play a waveform using Win32 Beep or waveOut
+// Play a waveform using Win32 waveOut (non-blocking, async)
 void AudioManager::playWave(const std::vector<uint8_t>& samples) {
 #ifdef _WIN32
     if (samples.size() < 44) return;
 
-    // We'll use a simple approach - create a WAV in memory and play it
-    HWAVEOUT hWaveOut;
-    WAVEFORMATEX wfx;
-    wfx.wFormatTag = WAVE_FORMAT_PCM;
-    wfx.nChannels = 1;
-    wfx.nSamplesPerSec = 44100;
-    wfx.nAvgBytesPerSec = 44100 * 2; // 16-bit mono
-    wfx.nBlockAlign = 2;
-    wfx.wBitsPerSample = 16;
-    wfx.cbSize = 0;
+    // Create a heap-allocated struct to hold playback data
+    struct PlaybackData {
+        HWAVEOUT hWaveOut;
+        WAVEHDR whdr;
+        HGLOBAL hg;
+        std::vector<uint8_t> wavData;
+    };
 
-    if (waveOutOpen(&hWaveOut, WAVE_MAPPER, &wfx, 0, 0, CALLBACK_NULL) != MMSYSERR_NOERROR) {
-        return;
-    }
+    auto* pd = new PlaybackData();
+    pd->hg = nullptr;
+    std::memset(&pd->whdr, 0, sizeof(pd->whdr));
 
-    // Allocate and prepare the header
-    WAVEHDR whdr;
-    std::memset(&whdr, 0, sizeof(whdr));
-
-    // Create a complete WAV with header
+    // Build WAV header in the heap-allocated container
     size_t dataSize = samples.size();
     size_t wavSize = 44 + dataSize;
-    std::vector<uint8_t> wavData(wavSize);
+    pd->wavData.resize(wavSize);
 
-    // RIFF header
-    std::memcpy(&wavData[0], "RIFF", 4);
+    std::memcpy(&pd->wavData[0], "RIFF", 4);
     uint32_t fileSize = static_cast<uint32_t>(wavSize - 8);
-    std::memcpy(&wavData[4], &fileSize, 4);
-    std::memcpy(&wavData[8], "WAVE", 4);
-
-    // fmt chunk
-    std::memcpy(&wavData[12], "fmt ", 4);
+    std::memcpy(&pd->wavData[4], &fileSize, 4);
+    std::memcpy(&pd->wavData[8], "WAVE", 4);
+    std::memcpy(&pd->wavData[12], "fmt ", 4);
     uint32_t fmtSize = 16;
-    std::memcpy(&wavData[16], &fmtSize, 4);
-    uint16_t audioFmt = 1; // PCM
-    std::memcpy(&wavData[20], &audioFmt, 2);
+    std::memcpy(&pd->wavData[16], &fmtSize, 4);
+    uint16_t audioFmt = 1;
+    std::memcpy(&pd->wavData[20], &audioFmt, 2);
     uint16_t channels = 1;
-    std::memcpy(&wavData[22], &channels, 2);
+    std::memcpy(&pd->wavData[22], &channels, 2);
     uint32_t sampleRate = 44100;
-    std::memcpy(&wavData[24], &sampleRate, 4);
+    std::memcpy(&pd->wavData[24], &sampleRate, 4);
     uint32_t byteRate = 44100 * 2;
-    std::memcpy(&wavData[28], &byteRate, 4);
+    std::memcpy(&pd->wavData[28], &byteRate, 4);
     uint16_t blockAlign = 2;
-    std::memcpy(&wavData[32], &blockAlign, 2);
+    std::memcpy(&pd->wavData[32], &blockAlign, 2);
     uint16_t bitsPerSample = 16;
-    std::memcpy(&wavData[34], &bitsPerSample, 2);
-
-    // data chunk
-    std::memcpy(&wavData[36], "data", 4);
+    std::memcpy(&pd->wavData[34], &bitsPerSample, 2);
+    std::memcpy(&pd->wavData[36], "data", 4);
     uint32_t dataChunkSize = static_cast<uint32_t>(dataSize);
-    std::memcpy(&wavData[40], &dataChunkSize, 4);
-    std::memcpy(&wavData[44], samples.data(), dataSize);
+    std::memcpy(&pd->wavData[40], &dataChunkSize, 4);
+    std::memcpy(&pd->wavData[44], samples.data(), dataSize);
 
-    // Allocate fixed memory for the WAV data so the pointer stays valid
-    HGLOBAL hg = GlobalAlloc(GMEM_FIXED | GMEM_SHARE, wavSize);
-    if (!hg) {
-        waveOutClose(hWaveOut);
-        return;
-    }
-    void* pData = static_cast<void*>(hg);
-    std::memcpy(pData, wavData.data(), wavSize);
+    // Launch async playback thread
+    std::thread([pd]() {
+        WAVEFORMATEX wfx;
+        wfx.wFormatTag = WAVE_FORMAT_PCM;
+        wfx.nChannels = 1;
+        wfx.nSamplesPerSec = 44100;
+        wfx.nAvgBytesPerSec = 44100 * 2;
+        wfx.nBlockAlign = 2;
+        wfx.wBitsPerSample = 16;
+        wfx.cbSize = 0;
 
-    whdr.lpData = static_cast<LPSTR>(pData);
-    whdr.dwBufferLength = static_cast<DWORD>(wavSize);
-    whdr.dwFlags = 0;
-    whdr.lpNext = nullptr;
-    whdr.dwUser = reinterpret_cast<DWORD_PTR>(hg);
+        if (waveOutOpen(&pd->hWaveOut, WAVE_MAPPER, &wfx, 0, 0, CALLBACK_NULL) != MMSYSERR_NOERROR) {
+            delete pd;
+            return;
+        }
 
-    if (waveOutPrepareHeader(hWaveOut, &whdr, sizeof(WAVEHDR)) == MMSYSERR_NOERROR) {
-        waveOutWrite(hWaveOut, &whdr, sizeof(WAVEHDR));
-    }
+        pd->hg = GlobalAlloc(GMEM_FIXED | GMEM_SHARE, pd->wavData.size());
+        if (!pd->hg) {
+            waveOutClose(pd->hWaveOut);
+            delete pd;
+            return;
+        }
+        std::memcpy(static_cast<void*>(pd->hg), pd->wavData.data(), pd->wavData.size());
 
-    // Wait for playback to finish
-    DWORD startTime = GetTickCount();
-    while (!(whdr.dwFlags & WHDR_DONE)) {
-        if (GetTickCount() - startTime > 500) break;
-        Sleep(1);
-    }
+        pd->whdr.lpData = static_cast<LPSTR>(pd->hg);
+        pd->whdr.dwBufferLength = static_cast<DWORD>(pd->wavData.size());
+        pd->whdr.dwFlags = 0;
 
-    waveOutUnprepareHeader(hWaveOut, &whdr, sizeof(WAVEHDR));
-    GlobalFree(hg);
-    waveOutClose(hWaveOut);
+        if (waveOutPrepareHeader(pd->hWaveOut, &pd->whdr, sizeof(WAVEHDR)) == MMSYSERR_NOERROR) {
+            waveOutWrite(pd->hWaveOut, &pd->whdr, sizeof(WAVEHDR));
+
+            // Wait for playback to finish (async, on this background thread)
+            DWORD startTime = GetTickCount();
+            while (!(pd->whdr.dwFlags & WHDR_DONE)) {
+                if (GetTickCount() - startTime > 1000) break;
+                Sleep(1);
+            }
+
+            waveOutUnprepareHeader(pd->hWaveOut, &pd->whdr, sizeof(WAVEHDR));
+        }
+
+        if (pd->hg) GlobalFree(pd->hg);
+        waveOutClose(pd->hWaveOut);
+        delete pd;
+    }).detach();
 #endif
 }
 

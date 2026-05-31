@@ -6,6 +6,7 @@
 #include "../../include/components/CollisionComponent.h"
 #include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/CircleShape.hpp>
+#include <SFML/Graphics/Sprite.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -64,9 +65,11 @@ void RooftopNightLevel::init(AssetManager& assets, GameState& state) {
     scrollOffset_ = 0.0f;
     nextBuildingX_ = 0.0f;
     gameTime_ = 0.0f;
+    assets_ = &assets;
 
     buildings_.clear();
     neonSigns_.clear();
+    decoratives_.clear();
     generateBuildings(10);
 
     if (assets.hasTexture("city_bg")) {
@@ -92,6 +95,36 @@ void RooftopNightLevel::generateBuildings(int count) {
         b.windowRows = 3 + (std::rand() % 3);
         buildings_.push_back(b);
         nextBuildingX_ += b.width;
+
+        // Generate decorative items for this building
+        int decoRoll = std::rand() % 100;
+        if (decoRoll < 20 && assets_ && assets_->hasTexture("flags")) {
+            float roofY = Constants::GROUND_Y - b.height;
+            DecorativeItem d;
+            d.x = b.x + b.width * 0.2f + (std::rand() % static_cast<int>(b.width * 0.4f));
+            d.y = roofY - 16.0f;
+            d.textureName = "flags";
+            d.scale = 0.25f;
+            decoratives_.push_back(d);
+        }
+        if (decoRoll < 30 && assets_ && assets_->hasTexture("ladder")) {
+            float roofY = Constants::GROUND_Y - b.height;
+            DecorativeItem d;
+            d.x = b.x + (std::rand() % 2 == 0 ? -6.0f : b.width - 4.0f);
+            d.y = roofY + 10.0f;
+            d.textureName = "ladder";
+            d.scale = 0.3f;
+            decoratives_.push_back(d);
+        }
+        if (decoRoll < 12 && assets_ && assets_->hasTexture("accessory")) {
+            float roofY = Constants::GROUND_Y - b.height;
+            DecorativeItem d;
+            d.x = b.x + b.width * 0.5f + (std::rand() % static_cast<int>(b.width * 0.3f));
+            d.y = roofY - 8.0f;
+            d.textureName = "accessory";
+            d.scale = 0.2f;
+            decoratives_.push_back(d);
+        }
     }
 }
 
@@ -107,6 +140,7 @@ void RooftopNightLevel::update(float deltaTime, AssetManager& assets, GameState&
     // Scroll buildings
     for (auto& b : buildings_) b.x -= scrollAmount;
     for (auto& n : neonSigns_) n.x -= scrollAmount;
+    for (auto& d : decoratives_) d.x -= scrollAmount;
 
     // Remove off-screen
     while (!buildings_.empty() && buildings_.front().x + buildings_.front().width < -200) {
@@ -114,6 +148,9 @@ void RooftopNightLevel::update(float deltaTime, AssetManager& assets, GameState&
     }
     while (!neonSigns_.empty() && neonSigns_.front().x < -200) {
         neonSigns_.erase(neonSigns_.begin());
+    }
+    while (!decoratives_.empty() && decoratives_.front().x < -200) {
+        decoratives_.erase(decoratives_.begin());
     }
 
     // Add new buildings ahead
@@ -131,6 +168,36 @@ void RooftopNightLevel::update(float deltaTime, AssetManager& assets, GameState&
         b.windowCount = 3 + (std::rand() % 6);
         b.windowRows = 3 + (std::rand() % 3);
         buildings_.push_back(b);
+
+        // Generate decorative items for this new building
+        int decoRoll = std::rand() % 100;
+        if (decoRoll < 20 && assets_ && assets_->hasTexture("flags")) {
+            float roofY = Constants::GROUND_Y - b.height;
+            DecorativeItem d;
+            d.x = b.x + b.width * 0.2f + (std::rand() % static_cast<int>(b.width * 0.4f));
+            d.y = roofY - 16.0f;
+            d.textureName = "flags";
+            d.scale = 0.25f;
+            decoratives_.push_back(d);
+        }
+        if (decoRoll < 30 && assets_ && assets_->hasTexture("ladder")) {
+            float roofY = Constants::GROUND_Y - b.height;
+            DecorativeItem d;
+            d.x = b.x + (std::rand() % 2 == 0 ? -6.0f : b.width - 4.0f);
+            d.y = roofY + 10.0f;
+            d.textureName = "ladder";
+            d.scale = 0.3f;
+            decoratives_.push_back(d);
+        }
+        if (decoRoll < 12 && assets_ && assets_->hasTexture("accessory")) {
+            float roofY = Constants::GROUND_Y - b.height;
+            DecorativeItem d;
+            d.x = b.x + b.width * 0.5f + (std::rand() % static_cast<int>(b.width * 0.3f));
+            d.y = roofY - 8.0f;
+            d.textureName = "accessory";
+            d.scale = 0.2f;
+            decoratives_.push_back(d);
+        }
 
         // Neon sign on ~30% of new buildings
         if (std::rand() % 100 < 30) {
@@ -319,6 +386,21 @@ void RooftopNightLevel::render(sf::RenderWindow& window) {
     window.draw(groundFill);
 
     dustParticles_.render(window);
+
+    // Decorative items
+    if (assets_) renderDecorative(window, *assets_);
+}
+
+void RooftopNightLevel::renderDecorative(sf::RenderWindow& window, AssetManager& assets) {
+    for (auto& d : decoratives_) {
+        if (!assets.hasTexture(d.textureName)) continue;
+        sf::Sprite decoSprite(assets.getTexture(d.textureName));
+        decoSprite.setScale(d.scale, d.scale);
+        sf::Vector2u sz = decoSprite.getTexture()->getSize();
+        decoSprite.setOrigin(sz.x / 2.0f, static_cast<float>(sz.y));
+        decoSprite.setPosition(d.x, d.y);
+        window.draw(decoSprite);
+    }
 }
 
 void RooftopNightLevel::spawnObstacles(GameState& state, AssetManager& assets) {
